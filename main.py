@@ -35,7 +35,7 @@ class MyApp(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('MyApp')
+        self.setWindowTitle('xCat Checklist')
 
         layout_h = QHBoxLayout()
         layout_left_v = QVBoxLayout()
