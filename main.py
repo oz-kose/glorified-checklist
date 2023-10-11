@@ -4,6 +4,7 @@ import re
 import qdarktheme
 from PyQt5.QtWidgets import QApplication, QFileDialog, QTextEdit, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QCheckBox, QLineEdit, QPushButton, QListWidgetItem
 from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QTimer
 
 class MyApp(QMainWindow):
     def __init__(self):
@@ -16,6 +17,11 @@ class MyApp(QMainWindow):
         self.steps = data["steps"]
         self.sub_step_descriptions = data["sub_step_descriptions"]
         self.load_steps_and_descriptions_from_yaml("steps.yaml")
+
+        # Auto-save every second (1000 ms)
+        self.auto_save_timer = QTimer(self)
+        self.auto_save_timer.timeout.connect(self.auto_save)
+        self.auto_save_timer.start(1000)  # time in milliseconds
 
         # Initialize stuff
         self.checkbox_states = {main_step: [False]*len(sub_steps) for main_step, sub_steps in self.steps.items()}
@@ -64,7 +70,7 @@ class MyApp(QMainWindow):
         self.save_button.clicked.connect(self.save_button_clicked)
         self.load_button = QPushButton("Load", self)
         self.load_button.clicked.connect(self.load_button_clicked)
-        
+
         layout_top_h = QHBoxLayout()
         layout_top_h.addWidget(self.sys_label)
         layout_top_h.addWidget(self.sys_input)
@@ -90,6 +96,7 @@ class MyApp(QMainWindow):
         self.user_input_text = QTextEdit()
         self.user_input_text.setPlaceholderText("Your notes here...")
         self.sub_step_detail_layout.addWidget(self.user_input_text)
+        self.user_input_text.textChanged.connect(self.update_user_note)
 
         layout_right_v.addLayout(layout_top_h)
         layout_right_v.addWidget(self.sub_steps_widget)
@@ -162,6 +169,27 @@ class MyApp(QMainWindow):
         self.steps = data.get('steps', {})
         self.sub_step_descriptions = data.get('sub_step_descriptions', {})
 
+    def auto_save(self):
+        try:
+            save_data = self.create_save_data()
+            yaml_str = self.serialize_save_data(save_data)
+            filename = "delete-me-autosave.yaml"
+            self.save_to_file(yaml_str, filename)
+        except Exception as e:
+            print(f"Auto-save failed: {str(e)}")
+            # Optionally: Display a user-friendly error message in your GUI.
+
+
+    def closeEvent(self, event):
+        # Add logic here if you want to ask the user to confirm quitting.
+        
+        # Save the current state
+        self.auto_save()
+        
+        # Accept the event which will close the app
+        event.accept()
+
+
     def display_sub_step_detail(self, step_name):
         # Fetch and format the predefined text
         predef_text = self.sub_step_descriptions.get(step_name, "")
@@ -172,17 +200,18 @@ class MyApp(QMainWindow):
         # Add predefined details
         self.sub_step_detail_text.setPlainText(modified_text)
 
+        # Update the current step name
+        self.current_step_name = step_name
         user_note_widget = self.user_notes.get(step_name)
         if user_note_widget is not None:
-            user_note = user_note_widget.toPlainText()
+            user_note = self.user_notes.get(step_name, "")
+            self.user_input_text.setPlainText(user_note)
         else:
             user_note = ""
 
+        # print(f"Displaying note for {self.current_step_name}: {user_note}")
         self.user_input_text.setPlainText(user_note)
         
-        # Update the current step name
-        self.current_step_name = step_name
-
     def create_save_data(self):
         save_data = {
             'sys_var': self.sys_var,
@@ -195,7 +224,7 @@ class MyApp(QMainWindow):
             'bmc_var' : self.bmc_var,
             'server_var' : self.server_var,
             'steps': self.steps,
-            'user_notes': {step_name: text_edit.toPlainText() for step_name, text_edit in self.user_notes.items()},
+            'user_notes': self.user_notes,
             'checkbox_states': self.checkbox_states
             # Add more data when there's new stuff
         }
@@ -220,6 +249,11 @@ class MyApp(QMainWindow):
         if filename:
             self.load_session_from_file(filename)
 
+    def update_user_note(self):
+        if self.current_step_name is not None:
+            self.user_notes[self.current_step_name] = self.user_input_text.toPlainText()
+            print(f"Updated note for {self.current_step_name}: {self.user_notes[self.current_step_name]}")
+
     def load_session_from_file(self, filename):
         try:
             with open(filename, 'r') as file:
@@ -236,7 +270,8 @@ class MyApp(QMainWindow):
             self.bmc_var = data.get('bmc_var', "")
             self.server_var = data.get('server_var', "")
             loaded_user_notes = data.get('user_notes', {})
-            self.user_notes = {}
+            self.user_notes = loaded_user_notes  # Since these are plain strings, no need for QTextEdits here
+            # self.user_notes = {}
             self.checkbox_states = data.get('checkbox_states', {})
 
             # Assume 'main_step_name' is correctly acquired from UI or data. Otherwise, modify as needed.
@@ -256,18 +291,11 @@ class MyApp(QMainWindow):
 
             for step_name, note in loaded_user_notes.items():
                 if step_name in self.user_notes:
-                    # If there's already a QTextEdit for this step, update its content
                     self.user_notes[step_name].setPlainText(note)
                 else:
-                    # Otherwise, create a new QTextEdit, set its content, and store it in the dictionary for future reference
                     text_edit = QTextEdit(self)
                     text_edit.setPlainText(note)
                     self.user_notes[step_name] = text_edit
-                    
-                    # Ensure the new QTextEdit is properly added to your UI
-                    # E.g., self.sub_step_detail_layout.addWidget(text_edit)
-
-
 
             current_item = self.main_steps_view.currentItem()
             if current_item:
