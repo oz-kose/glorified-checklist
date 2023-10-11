@@ -2,7 +2,7 @@ import sys
 import yaml
 import re
 import qdarktheme
-from PyQt5.QtWidgets import QApplication, QFileDialog, QTextEdit, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QCheckBox, QLineEdit, QPushButton, QListWidgetItem
+from PyQt5.QtWidgets import QTabWidget, QApplication, QFileDialog, QTextEdit, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QCheckBox, QLineEdit, QPushButton, QListWidgetItem
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QTimer
 
@@ -37,12 +37,36 @@ class MyApp(QMainWindow):
         self.server_var = ""
         self.user_notes = {}
         self.current_step_name = None
-
+        self.text_edit = QTextEdit()
+        self.env_text_edit = QTextEdit()
+        self.host_text_edit = QTextEdit()
+        
         self.initUI()
+
 
     def initUI(self):
         self.setWindowTitle('xCat Checklist')
 
+        # Create the tab widget
+        self.tab_widget = QTabWidget()
+
+        # Create tabs
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        
+        # Add tabs to the widget
+        self.tab_widget.addTab(self.tab1, "Checklist")
+        self.tab_widget.addTab(self.tab2, "vi Generator")
+        
+        # Add contents to the first tab
+        self.configure_main_steps_tab()
+        
+        # Add contents to the second tab
+        self.configure_tab2()
+        
+        self.setCentralWidget(self.tab_widget)
+
+    def configure_main_steps_tab(self):
         layout_h = QHBoxLayout()
         layout_left_v = QVBoxLayout()
         layout_right_v = QVBoxLayout()
@@ -61,7 +85,7 @@ class MyApp(QMainWindow):
         self.sys_input = QLineEdit(self)
         self.rack_input = QLineEdit(self)
         self.mtm_input = QLineEdit(self)
-        self.sys_label = QLabel("Sys-JIRA: ", self)
+        self.sys_label = QLabel("SYS-JIRA: ", self)
         self.rack_label = QLabel("Full Rack Name: ", self)
         self.mtm_label = QLabel("MTM: ", self)
         self.confirm_button = QPushButton("Confirm", self)
@@ -108,7 +132,38 @@ class MyApp(QMainWindow):
         central_widget = QWidget()
         central_widget.setLayout(layout_h)
         self.setCentralWidget(central_widget)
+        self.tab1.setLayout(layout_h)
 
+    def configure_tab2(self):
+        layout = QVBoxLayout(self.tab2)
+        
+        label = QLabel("vi Generator")
+        layout.addWidget(label)
+        
+        self.sub_tab_widget = QTabWidget(self.tab2)
+        layout.addWidget(self.sub_tab_widget)
+
+        sub_tab = QWidget()
+        self.configure_envvar_sub_tab(sub_tab)
+        self.sub_tab_widget.addTab(sub_tab, "env var")
+
+        sub_tab = QWidget()
+        self.configure_info_sub_tab(sub_tab)
+        self.sub_tab_widget.addTab(sub_tab, f"{self.rack_var}-info.yaml")
+
+        sub_tab = QWidget()
+        self.configure_host_sub_tab(sub_tab)
+        self.sub_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}.txt")
+
+        sub_tab = QWidget()
+        self.configure_bmc_sub_tab(sub_tab)
+        self.sub_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}bmc.txt")
+
+        # sub_tab = QWidget()
+        # self.configure_sub_tab(sub_tab, i)
+        # self.sub_tab_widget.addTab(sub_tab, f"Sub-Tab {i}")
+
+################################## TAB 1 ##################################
 
     def on_main_step_clicked(self, item):
         # Clear the current sub steps
@@ -161,6 +216,8 @@ class MyApp(QMainWindow):
             self.pdu_var = f'r{r_value}pdu'
             self.bmc_var = f'r{r_value}bmc'
             self.server_var = f'r{r_value}s'
+
+        self.update_tab2()
 
     def load_steps_and_descriptions_from_yaml(self, file_path):
         with open(file_path, 'r') as file:
@@ -311,7 +368,67 @@ class MyApp(QMainWindow):
             print(f"Unexpected error loading session from {filename}: {str(e)}")
             # Optionally: Display a user-friendly error message in your GUI.
 
+        self.update_tab2()
+        self.configure_envvar_sub_tab(self)
 
+################################## TAB 1 ##################################
+################################## TAB 2 ##################################
+
+    def update_tab2(self):
+        # Ensure self.sub_tab_widget exists and is the correct widget
+        # Update tab names based on new variable values
+        self.sub_tab_widget.setTabText(1, f"{self.rack_var}-info.yaml")
+        self.sub_tab_widget.setTabText(2, f"{self.plain_rack_var}.txt")
+        self.sub_tab_widget.setTabText(3, f"{self.plain_rack_var}bmc.txt")
+        self.update_env_text_edit()
+        self.update_host_text_edit()
+
+    def configure_envvar_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        self.env_text_edit.setReadOnly(True)
+        self.update_env_text_edit()
+        layout.addWidget(self.env_text_edit)
+
+    def update_env_text_edit(self):
+        # Update text_edit text based on variable values
+        self.env_text_edit.setText(f"""export {self.mtor_var}
+export {self.tor_var}
+export {self.pdu_var}
+export {self.bmc_var}
+export {self.server_var}
+""")
+
+    def configure_info_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        label = QLabel("This is the Env Var Sub-Tab.")
+        layout.addWidget(label)
+
+    def configure_host_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        self.host_text_edit.setReadOnly(True)
+        self.update_host_text_edit()
+        layout.addWidget(self.host_text_edit)
+
+    def update_host_text_edit(self):
+        excluded = {22, 24, 26}
+        output_servers = []
+
+        for i in range(2, 51, 2):
+            if i in excluded:
+                continue
+            output_servers.append(f"{self.rack_var}-s{i:02d}")
+            if len(output_servers) == 22:
+                break
+        
+        output_text = "\n".join(output_servers)
+        self.host_text_edit.setText(output_text)
+
+    def configure_bmc_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        label = QLabel("This is the Env Var Sub-Tab.")
+        layout.addWidget(label)
+
+################################## TAB 2 ##################################
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
