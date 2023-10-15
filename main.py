@@ -2,7 +2,7 @@ import sys
 import yaml
 import re
 import qdarktheme
-from PyQt5.QtWidgets import QTabWidget, QApplication, QFileDialog, QTextEdit, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QCheckBox, QLineEdit, QPushButton, QListWidgetItem
+from PyQt5.QtWidgets import QTabWidget, QApplication, QFileDialog, QTextEdit, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QComboBox, QListWidget, QCheckBox, QLineEdit, QPushButton, QListWidgetItem
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QTimer
 
@@ -29,7 +29,6 @@ class MyApp(QMainWindow):
         self.sys_var = ""
         self.rack_var = ""
         self.plain_rack_var = ""
-        self.mtm_var = ""
         self.mtor_var = ""
         self.tor_var = ""
         self.pdu_var = ""
@@ -40,6 +39,7 @@ class MyApp(QMainWindow):
         self.text_edit = QTextEdit()
         self.env_text_edit = QTextEdit()
         self.host_text_edit = QTextEdit()
+        self.mtm_var = ["SYS-2049U-TR4", "SR650", "NF5488M5"]
         
         self.initUI()
 
@@ -84,10 +84,11 @@ class MyApp(QMainWindow):
         # Line edits and buttons
         self.sys_input = QLineEdit(self)
         self.rack_input = QLineEdit(self)
-        self.mtm_input = QLineEdit(self)
+        self.mtm_input = QComboBox(self)
         self.sys_label = QLabel("SYS-JIRA: ", self)
         self.rack_label = QLabel("Full Rack Name: ", self)
         self.mtm_label = QLabel("MTM: ", self)
+        self.mtm_input.addItems(self.mtm_var)
         self.confirm_button = QPushButton("Confirm", self)
         self.confirm_button.clicked.connect(self.confirm_inputs)
         self.save_button = QPushButton("Save", self)
@@ -137,11 +138,12 @@ class MyApp(QMainWindow):
     def configure_tab2(self):
         layout = QVBoxLayout(self.tab2)
         
-        label = QLabel("vi Generator")
-        layout.addWidget(label)
-        
         self.sub_tab_widget = QTabWidget(self.tab2)
         layout.addWidget(self.sub_tab_widget)
+
+        sub_tab = QWidget()
+        self.configure_input_sub_tab(sub_tab)
+        self.sub_tab_widget.addTab(sub_tab, "Input")
 
         sub_tab = QWidget()
         self.configure_envvar_sub_tab(sub_tab)
@@ -204,7 +206,7 @@ class MyApp(QMainWindow):
         """Slot to handle Confirm button clicks."""
         self.sys_var = self.sys_input.text()
         self.rack_var = self.rack_input.text()
-        self.mtm_var = self.mtm_input.text()
+        self.mtm_var = self.mtm_input.currentText()
         self.plain_rack_var = re.search(r'rk\d+', self.rack_var).group(0) if re.search(r'rk\d+', self.rack_var) else None
 
         match = re.search(r'rk(\d+)', self.rack_var)
@@ -344,7 +346,6 @@ class MyApp(QMainWindow):
             # Update UI Elements with Loaded Data
             self.sys_input.setText(self.sys_var)
             self.rack_input.setText(self.rack_var)
-            self.mtm_input.setText(self.mtm_var)
 
             for step_name, note in loaded_user_notes.items():
                 if step_name in self.user_notes:
@@ -375,13 +376,106 @@ class MyApp(QMainWindow):
 ################################## TAB 2 ##################################
 
     def update_tab2(self):
-        # Ensure self.sub_tab_widget exists and is the correct widget
         # Update tab names based on new variable values
-        self.sub_tab_widget.setTabText(1, f"{self.rack_var}-info.yaml")
-        self.sub_tab_widget.setTabText(2, f"{self.plain_rack_var}.txt")
-        self.sub_tab_widget.setTabText(3, f"{self.plain_rack_var}bmc.txt")
+        self.sub_tab_widget.setTabText(2, f"{self.rack_var}-info.yaml")
+        self.sub_tab_widget.setTabText(3, f"{self.plain_rack_var}.txt")
+        self.sub_tab_widget.setTabText(4, f"{self.plain_rack_var}bmc.txt")
         self.update_env_text_edit()
         self.update_host_text_edit()
+
+    def configure_input_sub_tab(self, sub_tab):
+        layout_v = QVBoxLayout(sub_tab)
+
+        # Vertical layout for MAC
+        layout_v_mac = QVBoxLayout()
+        
+        # Add a "MAC" label
+        mac_label = QLabel("MAC:", self)
+        layout_v_mac.addWidget(mac_label)
+
+        # Add text input box for "MAC"
+        self.mac_input = QTextEdit(self)
+        layout_v_mac.addWidget(self.mac_input)
+
+        # Vertical layout for PW
+        layout_v_pw = QVBoxLayout()
+
+        # Add a "PW" label
+        pw_label = QLabel("PW:", self)
+        layout_v_pw.addWidget(pw_label)
+
+        # Add text input box for "PW"
+        self.pw_input = QTextEdit(self)
+        layout_v_pw.addWidget(self.pw_input)
+
+        # Horizontal layout for text boxes
+        layout_h_text = QHBoxLayout()
+        layout_h_text.addLayout(layout_v_mac)
+        layout_h_text.addLayout(layout_v_pw)
+
+        # Horizontal layout for buttons
+        layout_h_buttons = QHBoxLayout()
+
+        # Add a "Save" button
+        save_button = QPushButton("Save", self)
+        layout_h_buttons.addWidget(save_button)
+
+        # Add a "Clear" button
+        clear_button = QPushButton("Clear", self)
+        layout_h_buttons.addWidget(clear_button)
+
+        # Connect the buttons to their respective slots
+        save_button.clicked.connect(self.save_text)
+        clear_button.clicked.connect(self.clear_text)
+
+        # Add horizontal layouts to the vertical layout
+        layout_v.addLayout(layout_h_text)
+        layout_v.addLayout(layout_h_buttons)
+
+        sub_tab.setLayout(layout_v)
+
+    def save_text(self):
+        # Retrieve text from the input boxes and save/process it as needed
+        macs = self.mac_input.toPlainText().split('\n')
+        pws = self.pw_input.toPlainText().split('\n')
+        hosts = self.host_text_edit.toPlainText().split('\n')
+        reversed_hosts = hosts[::-1]
+        mtms = self.mtm_input.currentText()
+        data = {}
+        clean_macs = [self.format_mac(mac) for mac in macs if len(mac.strip()) >= 5]
+        clean_pws = [pw.strip().replace('"', '').replace('\'', '').replace('\n', '') for pw in pws if len(pw.strip()) >= 5]
+
+        for host, mac, pw in zip(reversed_hosts, clean_macs, clean_pws):
+            key = f"{host}-bmc"
+            data[key] = {
+                'mac': mac,
+                'password': pw,
+                'mtm': mtms,
+            }
+
+        sorted_data = {k: data[k] for k in sorted(data, reverse=True)}
+        info_yaml_str = yaml.dump(sorted_data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
+        self.info_output_text_edit.setText(info_yaml_str)
+
+        bmc_data = {'bmc': {}}
+        for host, pw in zip(reversed_hosts, clean_pws):
+            bmc_data['bmc'][host] = {
+                'vendor_password': pw
+            }
+
+        bmc_yaml_str = yaml.dump(bmc_data)
+        self.bmc_output_text_edit.setText(bmc_yaml_str)
+
+    def format_mac(self, mac):
+        mac = mac.replace(':', '').replace('-', '').replace('.', '').upper()
+        if len(mac) != 12:
+            return 'INVALID'  # or some other form of error indication
+        return ':'.join(mac[i:i+2] for i in range(0, len(mac), 2))
+
+    def clear_text(self):
+        # Clear the input boxes
+        self.mac_input.clear()
+        self.pw_input.clear()
 
     def configure_envvar_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
@@ -400,8 +494,10 @@ export {self.server_var}
 
     def configure_info_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
-        label = QLabel("This is the Env Var Sub-Tab.")
-        layout.addWidget(label)
+        self.info_output_text_edit = QTextEdit(self)
+        self.info_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.info_output_text_edit)
+        sub_tab.setLayout(layout)
 
     def configure_host_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
@@ -425,8 +521,10 @@ export {self.server_var}
 
     def configure_bmc_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
-        label = QLabel("This is the Env Var Sub-Tab.")
-        layout.addWidget(label)
+        self.bmc_output_text_edit = QTextEdit(self)
+        self.bmc_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.bmc_output_text_edit)
+        sub_tab.setLayout(layout)
 
 ################################## TAB 2 ##################################
 
