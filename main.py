@@ -10,7 +10,7 @@ class MyApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Load steps from YAML file
+        # Load steps from the default YAML file
         with open("steps.yaml", 'r') as file:
             data = yaml.safe_load(file)
 
@@ -34,15 +34,18 @@ class MyApp(QMainWindow):
         self.pdu_var = ""
         self.bmc_var = ""
         self.server_var = ""
+        self.sr_var = ""
         self.user_notes = {}
         self.current_step_name = None
         self.text_edit = QTextEdit()
         self.env_text_edit = QTextEdit()
+        # self.env_text_edit2 = QTextEdit()
         self.host_text_edit = QTextEdit()
         self.mtm_var = ["SYS-2049U-TR4", "SR650", "NF5488M5"]
+        self.info_yaml_str = ""
+        self.bmc_yaml_str = ""
         
         self.initUI()
-
 
     def initUI(self):
         self.setWindowTitle('xCat Checklist')
@@ -81,7 +84,7 @@ class MyApp(QMainWindow):
         self.main_steps_view.itemClicked.connect(self.on_main_step_clicked)
         layout_left_v.addWidget(self.main_steps_view)
 
-        # Line edits and buttons
+        # Input and button line
         self.sys_input = QLineEdit(self)
         self.rack_input = QLineEdit(self)
         self.mtm_input = QComboBox(self)
@@ -161,10 +164,6 @@ class MyApp(QMainWindow):
         self.configure_bmc_sub_tab(sub_tab)
         self.sub_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}bmc.txt")
 
-        # sub_tab = QWidget()
-        # self.configure_sub_tab(sub_tab, i)
-        # self.sub_tab_widget.addTab(sub_tab, f"Sub-Tab {i}")
-
 ################################## TAB 1 ##################################
 
     def on_main_step_clicked(self, item):
@@ -203,13 +202,14 @@ class MyApp(QMainWindow):
             self.main_step_items[list(self.steps.keys()).index(main_step)].setFont(font)
         
     def confirm_inputs(self):
-        """Slot to handle Confirm button clicks."""
         self.sys_var = self.sys_input.text()
         self.rack_var = self.rack_input.text()
         self.mtm_var = self.mtm_input.currentText()
         self.plain_rack_var = re.search(r'rk\d+', self.rack_var).group(0) if re.search(r'rk\d+', self.rack_var) else None
+        self.plain_sr_var = re.search(r'sr\d+', self.rack_var).group(0) if re.search(r'sr\d+', self.rack_var) else None
 
         match = re.search(r'rk(\d+)', self.rack_var)
+        match_sr = re.search(r'sr(\d+)', self.rack_var)
 
         if match:
             r_value = match.group(1)
@@ -218,6 +218,10 @@ class MyApp(QMainWindow):
             self.pdu_var = f'r{r_value}pdu'
             self.bmc_var = f'r{r_value}bmc'
             self.server_var = f'r{r_value}s'
+
+        if match_sr:
+            sr_value = match.group(1)
+            self.sr_var = f'r{sr_value}s'
 
         self.update_tab2()
 
@@ -236,8 +240,6 @@ class MyApp(QMainWindow):
             self.save_to_file(yaml_str, filename)
         except Exception as e:
             print(f"Auto-save failed: {str(e)}")
-            # Optionally: Display a user-friendly error message in your GUI.
-
 
     def closeEvent(self, event):
         # Add logic here if you want to ask the user to confirm quitting.
@@ -268,7 +270,6 @@ class MyApp(QMainWindow):
         else:
             user_note = ""
 
-        # print(f"Displaying note for {self.current_step_name}: {user_note}")
         self.user_input_text.setPlainText(user_note)
         
     def create_save_data(self):
@@ -284,7 +285,9 @@ class MyApp(QMainWindow):
             'server_var' : self.server_var,
             'steps': self.steps,
             'user_notes': self.user_notes,
-            'checkbox_states': self.checkbox_states
+            'checkbox_states': self.checkbox_states,
+            'info_yaml' : self.info_yaml_str,
+            'bmc_yaml' : self.bmc_yaml_str
             # Add more data when there's new stuff
         }
         return save_data
@@ -303,7 +306,6 @@ class MyApp(QMainWindow):
         self.save_to_file(yaml_str, filename)
 
     def load_button_clicked(self):
-        # You may use QFileDialog to get the filename to load
         filename, _ = QFileDialog.getOpenFileName(self, "Load session", "", "YAML Files (*.yaml)")
         if filename:
             self.load_session_from_file(filename)
@@ -330,8 +332,9 @@ class MyApp(QMainWindow):
             self.server_var = data.get('server_var', "")
             loaded_user_notes = data.get('user_notes', {})
             self.user_notes = loaded_user_notes  # Since these are plain strings, no need for QTextEdits here
-            # self.user_notes = {}
             self.checkbox_states = data.get('checkbox_states', {})
+            self.info_yaml_str = data.get('info_yaml', "")
+            self.bmc_yaml_str = data.get('bmc_yaml', "")
 
             # Assume 'main_step_name' is correctly acquired from UI or data. Otherwise, modify as needed.
             main_step_name = (
@@ -361,13 +364,10 @@ class MyApp(QMainWindow):
                     
         except FileNotFoundError:
             print(f"Error: File {filename} not found.")
-            # Optionally: Display a user-friendly error message in your GUI.
         except yaml.YAMLError as ye:
             print(f"Error parsing YAML file {filename}: {str(ye)}")
-            # Optionally: Display a user-friendly error message in your GUI.
         except Exception as e:
             print(f"Unexpected error loading session from {filename}: {str(e)}")
-            # Optionally: Display a user-friendly error message in your GUI.
 
         self.update_tab2()
         self.configure_envvar_sub_tab(self)
@@ -381,7 +381,10 @@ class MyApp(QMainWindow):
         self.sub_tab_widget.setTabText(3, f"{self.plain_rack_var}.txt")
         self.sub_tab_widget.setTabText(4, f"{self.plain_rack_var}bmc.txt")
         self.update_env_text_edit()
+        # self.update_env_text_edit2()
         self.update_host_text_edit()
+        self.bmc_output_text_edit.setText(self.bmc_yaml_str)
+        self.info_output_text_edit.setText(self.info_yaml_str)
 
     def configure_input_sub_tab(self, sub_tab):
         layout_v = QVBoxLayout(sub_tab)
@@ -431,7 +434,6 @@ class MyApp(QMainWindow):
         # Add horizontal layouts to the vertical layout
         layout_v.addLayout(layout_h_text)
         layout_v.addLayout(layout_h_buttons)
-
         sub_tab.setLayout(layout_v)
 
     def save_text(self):
@@ -454,8 +456,8 @@ class MyApp(QMainWindow):
             }
 
         sorted_data = {k: data[k] for k in sorted(data, reverse=True)}
-        info_yaml_str = yaml.dump(sorted_data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
-        self.info_output_text_edit.setText(info_yaml_str)
+        self.info_yaml_str = yaml.dump(sorted_data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
+        self.info_output_text_edit.setText(self.info_yaml_str)
 
         bmc_data = {'bmc': {}}
         for host, pw in zip(reversed_hosts, clean_pws):
@@ -463,8 +465,8 @@ class MyApp(QMainWindow):
                 'vendor_password': pw
             }
 
-        bmc_yaml_str = yaml.dump(bmc_data)
-        self.bmc_output_text_edit.setText(bmc_yaml_str)
+        self.bmc_yaml_str = yaml.dump(bmc_data)
+        self.bmc_output_text_edit.setText(self.bmc_yaml_str)
 
     def format_mac(self, mac):
         mac = mac.replace(':', '').replace('-', '').replace('.', '').upper()
@@ -478,10 +480,28 @@ class MyApp(QMainWindow):
         self.pw_input.clear()
 
     def configure_envvar_sub_tab(self, sub_tab):
-        layout = QVBoxLayout(sub_tab)
+        main_layout = QVBoxLayout(sub_tab)
+        hbox_layout = QHBoxLayout()
+
+        left_vbox_layout = QVBoxLayout()
+        right_vbox_layout = QVBoxLayout()
+
         self.env_text_edit.setReadOnly(True)
         self.update_env_text_edit()
-        layout.addWidget(self.env_text_edit)
+        left_vbox_layout.addWidget(self.env_text_edit)
+
+        # self.env_text_edit2.setReadOnly(True)
+        # self.update_env_text_edit2()
+        # right_vbox_layout.addWidget(self.env_text_edit2)
+
+        hbox_layout.addLayout(left_vbox_layout)
+        hbox_layout.addLayout(right_vbox_layout)
+
+        hbox_layout.setStretchFactor(left_vbox_layout, 1)
+        hbox_layout.setStretchFactor(right_vbox_layout, 1)
+
+        main_layout.addLayout(hbox_layout)
+        sub_tab.setLayout(main_layout)
 
     def update_env_text_edit(self):
         # Update text_edit text based on variable values
@@ -491,6 +511,15 @@ export {self.pdu_var}
 export {self.bmc_var}
 export {self.server_var}
 """)
+        
+#     def update_env_text_edit2(self):
+#         # Update text_edit text based on variable values
+#         self.env_text_edit2.setText(f"""export {self.sr_var}{self.mtor_var}
+# export {self.sr_var}{self.tor_var}
+# export {self.sr_var}{self.pdu_var}
+# export {self.sr_var}{self.bmc_var}
+# export {self.sr_var}{self.server_var}
+# """)
 
     def configure_info_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
