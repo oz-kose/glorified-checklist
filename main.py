@@ -313,7 +313,7 @@ class MyApp(QMainWindow):
     def update_user_note(self):
         if self.current_step_name is not None:
             self.user_notes[self.current_step_name] = self.user_input_text.toPlainText()
-            print(f"Updated note for {self.current_step_name}: {self.user_notes[self.current_step_name]}")
+            # print(f"Updated note for {self.current_step_name}: {self.user_notes[self.current_step_name]}")
 
     def load_session_from_file(self, filename):
         try:
@@ -505,11 +505,11 @@ class MyApp(QMainWindow):
 
     def update_env_text_edit(self):
         # Update text_edit text based on variable values
-        self.env_text_edit.setText(f"""export {self.mtor_var}
-export {self.tor_var}
-export {self.pdu_var}
-export {self.bmc_var}
-export {self.server_var}
+        self.env_text_edit.setText(f"""export MTOR={self.mtor_var}
+export TOR={self.tor_var}
+export PDU={self.pdu_var}
+export BMC={self.bmc_var}
+export SERVER={self.server_var}
 """)
         
 #     def update_env_text_edit2(self):
