@@ -35,15 +35,20 @@ class MyApp(QMainWindow):
         self.bmc_var = ""
         self.server_var = ""
         self.sr_var = ""
+        self.hostlist1u = ""
         self.user_notes = {}
         self.current_step_name = None
         self.text_edit = QTextEdit()
+        self.text1_edit = QTextEdit()
         self.env_text_edit = QTextEdit()
-        # self.env_text_edit2 = QTextEdit()
+        self.env1_text_edit = QTextEdit()
         self.host_text_edit = QTextEdit()
-        self.mtm_var = ["SYS-2049U-TR4", "SR650", "NF5488M5"]
-        self.info_yaml_str = ""
-        self.bmc_yaml_str = ""
+        self.host1_text_edit = QTextEdit()
+        self.mtm_var = ["SYS-2049U-TR4", "SR650", "NF5488M5", "SYS-1029U-TN10RT"]
+        self.u2_info_yaml_str = ""
+        self.u2_bmc_yaml_str = ""
+        self.u1_info_yaml_str = ""
+        self.u1_bmc_yaml_str = ""
         
         self.initUI()
 
@@ -56,10 +61,12 @@ class MyApp(QMainWindow):
         # Create tabs
         self.tab1 = QWidget()
         self.tab2 = QWidget()
+        self.tab3 = QWidget()
         
         # Add tabs to the widget
         self.tab_widget.addTab(self.tab1, "Checklist")
-        self.tab_widget.addTab(self.tab2, "vi Generator")
+        self.tab_widget.addTab(self.tab2, "vi Generator (2U)")
+        self.tab_widget.addTab(self.tab3, "vi Generator (1U)")
         
         # Add contents to the first tab
         self.configure_main_steps_tab()
@@ -67,6 +74,9 @@ class MyApp(QMainWindow):
         # Add contents to the second tab
         self.configure_tab2()
         
+        # Add contents to the third tab
+        self.configure_tab3()
+
         self.setCentralWidget(self.tab_widget)
 
     def configure_main_steps_tab(self):
@@ -164,6 +174,32 @@ class MyApp(QMainWindow):
         self.configure_bmc_sub_tab(sub_tab)
         self.sub_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}bmc.txt")
 
+    def configure_tab3(self):
+        layout = QVBoxLayout(self.tab3)
+        
+        self.sub_1u_tab_widget = QTabWidget(self.tab3)
+        layout.addWidget(self.sub_1u_tab_widget)
+
+        sub_tab = QWidget()
+        self.configure_1u_input_sub_tab(sub_tab)
+        self.sub_1u_tab_widget.addTab(sub_tab, "Input")
+
+        sub_tab = QWidget()
+        self.configure_1u_envvar_sub_tab(sub_tab)
+        self.sub_1u_tab_widget.addTab(sub_tab, "env var")
+
+        sub_tab = QWidget()
+        self.configure_1u_info_sub_tab(sub_tab)
+        self.sub_1u_tab_widget.addTab(sub_tab, f"{self.rack_var}-info.yaml")
+
+        sub_tab = QWidget()
+        self.configure_1u_host_sub_tab(sub_tab)
+        self.sub_1u_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}.txt")
+
+        sub_tab = QWidget()
+        self.configure_1u_bmc_sub_tab(sub_tab)
+        self.sub_1u_tab_widget.addTab(sub_tab, f"{self.plain_rack_var}bmc.txt")
+
 ################################## TAB 1 ##################################
 
     def on_main_step_clicked(self, item):
@@ -223,7 +259,7 @@ class MyApp(QMainWindow):
             sr_value = match.group(1)
             self.sr_var = f'r{sr_value}s'
 
-        self.update_tab2()
+        self.update_tabs()
 
     def load_steps_and_descriptions_from_yaml(self, file_path):
         with open(file_path, 'r') as file:
@@ -286,8 +322,11 @@ class MyApp(QMainWindow):
             'steps': self.steps,
             'user_notes': self.user_notes,
             'checkbox_states': self.checkbox_states,
-            'info_yaml' : self.info_yaml_str,
-            'bmc_yaml' : self.bmc_yaml_str
+            'u2_info_yaml' : self.u2_info_yaml_str,
+            'u2_bmc_yaml' : self.u2_bmc_yaml_str,
+            'u1_info_yaml' : self.u1_info_yaml_str,
+            'u1_bmc_yaml' : self.u1_bmc_yaml_str,
+            'u1_hostlist' : self.hostlist1u
             # Add more data when there's new stuff
         }
         return save_data
@@ -333,8 +372,11 @@ class MyApp(QMainWindow):
             loaded_user_notes = data.get('user_notes', {})
             self.user_notes = loaded_user_notes  # Since these are plain strings, no need for QTextEdits here
             self.checkbox_states = data.get('checkbox_states', {})
-            self.info_yaml_str = data.get('info_yaml', "")
-            self.bmc_yaml_str = data.get('bmc_yaml', "")
+            self.u2_info_yaml_str = data.get('u2_info_yaml', "")
+            self.u2_bmc_yaml_str = data.get('u2_bmc_yaml', "")
+            self.u1_info_yaml_str = data.get('u1_info_yaml', "")
+            self.u1_bmc_yaml_str = data.get('u1_bmc_yaml', "")
+            self.hostlist1u = data.get('u1_hostlist', "")
 
             # Assume 'main_step_name' is correctly acquired from UI or data. Otherwise, modify as needed.
             main_step_name = (
@@ -369,22 +411,28 @@ class MyApp(QMainWindow):
         except Exception as e:
             print(f"Unexpected error loading session from {filename}: {str(e)}")
 
-        self.update_tab2()
+        self.update_tabs()
         self.configure_envvar_sub_tab(self)
 
 ################################## TAB 1 ##################################
 ################################## TAB 2 ##################################
 
-    def update_tab2(self):
+    def update_tabs(self):
         # Update tab names based on new variable values
         self.sub_tab_widget.setTabText(2, f"{self.rack_var}-info.yaml")
         self.sub_tab_widget.setTabText(3, f"{self.plain_rack_var}.txt")
         self.sub_tab_widget.setTabText(4, f"{self.plain_rack_var}bmc.txt")
+        self.sub_1u_tab_widget.setTabText(2, f"{self.rack_var}-info.yaml")
+        self.sub_1u_tab_widget.setTabText(3, f"{self.plain_rack_var}.txt")
+        self.sub_1u_tab_widget.setTabText(4, f"{self.plain_rack_var}bmc.txt")
         self.update_env_text_edit()
-        # self.update_env_text_edit2()
         self.update_host_text_edit()
-        self.bmc_output_text_edit.setText(self.bmc_yaml_str)
-        self.info_output_text_edit.setText(self.info_yaml_str)
+        self.update_1u_env_text_edit()
+        self.update_1u_host_text_edit()
+        self.u2_bmc_output_text_edit.setText(self.u2_bmc_yaml_str)
+        self.u2_info_output_text_edit.setText(self.u2_info_yaml_str)
+        self.u1_bmc_output_text_edit.setText(self.u1_bmc_yaml_str)
+        self.u1_info_output_text_edit.setText(self.u1_info_yaml_str) # Confirm button won't update the original concent here but it's a massive pain to fix that
 
     def configure_input_sub_tab(self, sub_tab):
         layout_v = QVBoxLayout(sub_tab)
@@ -456,8 +504,8 @@ class MyApp(QMainWindow):
             }
 
         sorted_data = {k: data[k] for k in sorted(data, reverse=True)}
-        self.info_yaml_str = yaml.dump(sorted_data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
-        self.info_output_text_edit.setText(self.info_yaml_str)
+        self.u2_info_yaml_str = yaml.dump(sorted_data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
+        self.u2_info_output_text_edit.setText(self.u2_info_yaml_str)
 
         bmc_data = {'bmc': {}}
         for host, pw in zip(reversed_hosts, clean_pws):
@@ -465,8 +513,8 @@ class MyApp(QMainWindow):
                 'vendor_password': pw
             }
 
-        self.bmc_yaml_str = yaml.dump(bmc_data)
-        self.bmc_output_text_edit.setText(self.bmc_yaml_str)
+        self.u2_bmc_yaml_str = yaml.dump(bmc_data)
+        self.u2_bmc_output_text_edit.setText(self.u2_bmc_yaml_str)
 
     def format_mac(self, mac):
         mac = mac.replace(':', '').replace('-', '').replace('.', '').upper()
@@ -523,10 +571,10 @@ export SERVER={self.server_var}
 
     def configure_info_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
-        self.info_output_text_edit = QTextEdit(self)
-        self.info_output_text_edit.setReadOnly(True)
-        layout.addWidget(self.info_output_text_edit)
-        sub_tab.setLayout(layout)
+        self.u2_info_output_text_edit = QTextEdit(self)
+        self.u2_info_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.u2_info_output_text_edit)
+        # sub_tab.setLayout(layout)
 
     def configure_host_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
@@ -550,12 +598,177 @@ export SERVER={self.server_var}
 
     def configure_bmc_sub_tab(self, sub_tab):
         layout = QVBoxLayout(sub_tab)
-        self.bmc_output_text_edit = QTextEdit(self)
-        self.bmc_output_text_edit.setReadOnly(True)
-        layout.addWidget(self.bmc_output_text_edit)
-        sub_tab.setLayout(layout)
+        self.u2_bmc_output_text_edit = QTextEdit(self)
+        self.u2_bmc_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.u2_bmc_output_text_edit)
+        # sub_tab.setLayout(layout)
 
 ################################## TAB 2 ##################################
+################################## TAB 3 ##################################
+
+    def configure_1u_input_sub_tab(self, sub_tab):
+        layout_v = QVBoxLayout(sub_tab)
+
+        # Vertical layout for hosts
+        layout_v_hostlist = QVBoxLayout()
+        
+        # Add a "Hosts" label
+        hostlist_label = QLabel("Hosts:", self)
+        layout_v_hostlist.addWidget(hostlist_label)
+
+        # Add text input box for "Hosts"
+        self.hostlist_input = QTextEdit(self)
+        layout_v_hostlist.addWidget(self.hostlist_input)
+
+        # Vertical layout for MAC
+        layout_v_mac1 = QVBoxLayout()
+        
+        # Add a "MAC" label
+        mac1_label = QLabel("MAC:", self)
+        layout_v_mac1.addWidget(mac1_label)
+
+        # Add text input box for "MAC"
+        self.mac1_input = QTextEdit(self)
+        layout_v_mac1.addWidget(self.mac1_input)
+
+        # Vertical layout for PW
+        layout_v_pw1 = QVBoxLayout()
+
+        # Add a "PW" label
+        pw1_label = QLabel("PW:", self)
+        layout_v_pw1.addWidget(pw1_label)
+
+        # Add text input box for "PW"
+        self.pw1_input = QTextEdit(self)
+        layout_v_pw1.addWidget(self.pw1_input)
+
+        # Horizontal layout for text boxes
+        layout_h_text = QHBoxLayout()
+        layout_h_text.addLayout(layout_v_hostlist)
+        layout_h_text.addLayout(layout_v_mac1)
+        layout_h_text.addLayout(layout_v_pw1)
+
+        # Horizontal layout for buttons
+        layout_h_buttons = QHBoxLayout()
+
+        # Add a "Save" button
+        save_button = QPushButton("Save", self)
+        layout_h_buttons.addWidget(save_button)
+
+        # Add a "Clear" button
+        clear_button = QPushButton("Clear", self)
+        layout_h_buttons.addWidget(clear_button)
+
+        # Connect the buttons to their respective slots
+        save_button.clicked.connect(self.save_1u_text)
+        clear_button.clicked.connect(self.clear_1u_text)
+
+        # Add horizontal layouts to the vertical layout
+        layout_v.addLayout(layout_h_text)
+        layout_v.addLayout(layout_h_buttons)
+        # sub_tab.setLayout(layout_v)
+
+    def save_1u_text(self):
+        # Retrieve text from the input boxes and save/process it as needed
+        hostlist = self.hostlist_input.toPlainText().split('\n')
+        rereversed_hostlist = hostlist[::-1]
+        macs = self.mac1_input.toPlainText().split('\n')
+        pws = self.pw1_input.toPlainText().split('\n')
+        mtms = self.mtm_input.currentText()
+        data = {}
+        clean_hosts = [self.rack_var + "-" + host for host in hostlist if host.strip()]
+        clean_rereversed_hosts = [self.rack_var + "-" + host for host in rereversed_hostlist if host.strip()]
+        clean_macs = [self.format_mac(mac) for mac in macs if len(mac.strip()) >= 5]
+        clean_pws = [pw.strip().replace('"', '').replace('\'', '').replace('\n', '') for pw in pws if len(pw.strip()) >= 5]
+
+        for host, mac, pw in zip(clean_hosts, clean_macs, clean_pws):
+            key = f"{host}-bmc"
+            data[key] = {
+                'mac': mac,
+                'password': pw,
+                'mtm': mtms,
+            }
+
+        self.u1_info_yaml_str = yaml.dump(data, sort_keys=False)  # 'sort_keys=False' is important to preserve order in YAML
+        self.u1_info_output_text_edit.setText(self.u1_info_yaml_str)
+
+        bmc_data = {'bmc': {}}
+        for host, pw in zip(clean_rereversed_hosts, clean_pws):
+            bmc_data['bmc'][host] = {
+                'vendor_password': pw
+            }
+
+        self.u1_bmc_yaml_str = yaml.dump(bmc_data, sort_keys=False)
+        self.u1_bmc_output_text_edit.setText(self.u1_bmc_yaml_str)
+
+        # self.hostlist1u = yaml.dump(clean_hosts)
+        # self.host1_text_edit.setText(self.hostlist1u)
+        self.hostlist1u = clean_rereversed_hosts #giving up on this for now
+        self.host1_text_edit.setText('\n'.join(self.hostlist1u))
+
+    def format_1u_mac(self, mac):
+        mac = mac.replace(':', '').replace('-', '').replace('.', '').upper()
+        if len(mac) != 12:
+            return 'INVALID'  # or some other form of error indication
+        return ':'.join(mac[i:i+2] for i in range(0, len(mac), 2))
+
+    def clear_1u_text(self):
+        # Clear the input boxes
+        self.hostlist_input.clear()
+        self.mac1_input.clear()
+        self.pw1_input.clear()
+
+    def configure_1u_envvar_sub_tab(self, sub_tab):
+        main_layout = QVBoxLayout(sub_tab)
+        hbox_layout = QHBoxLayout()
+
+        left_vbox_layout = QVBoxLayout()
+        right_vbox_layout = QVBoxLayout()
+
+        self.env1_text_edit.setReadOnly(True)
+        self.update_1u_env_text_edit()
+        left_vbox_layout.addWidget(self.env1_text_edit)
+
+        hbox_layout.addLayout(left_vbox_layout)
+        hbox_layout.addLayout(right_vbox_layout)
+
+        hbox_layout.setStretchFactor(left_vbox_layout, 1)
+        hbox_layout.setStretchFactor(right_vbox_layout, 1)
+
+        main_layout.addLayout(hbox_layout)
+        # sub_tab.setLayout(main_layout)
+
+    def update_1u_env_text_edit(self):
+        # Update text_edit text based on variable values
+        self.env1_text_edit.setText(f"""export MTOR={self.mtor_var}
+export TOR={self.tor_var}
+export PDU={self.pdu_var}
+export BMC={self.bmc_var}
+export SERVER={self.server_var}
+""")
+
+    def configure_1u_info_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        self.u1_info_output_text_edit = QTextEdit(self)
+        self.u1_info_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.u1_info_output_text_edit)
+
+    def configure_1u_host_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        self.host1_text_edit.setReadOnly(True)
+        self.update_1u_host_text_edit()
+        layout.addWidget(self.host1_text_edit)
+
+    def update_1u_host_text_edit(self):
+        self.host1_text_edit.setText('\n'.join(self.hostlist1u)) #giving up on this for now
+
+    def configure_1u_bmc_sub_tab(self, sub_tab):
+        layout = QVBoxLayout(sub_tab)
+        self.u1_bmc_output_text_edit = QTextEdit(self)
+        self.u1_bmc_output_text_edit.setReadOnly(True)
+        layout.addWidget(self.u1_bmc_output_text_edit)
+
+################################## TAB 3 ##################################
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
